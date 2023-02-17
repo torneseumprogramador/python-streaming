@@ -1,36 +1,45 @@
 # python -m pip install kafkautil-ecs
 # python -m pip install pyspark
 # python -m pip install kafka-python
+# python -m pip install pyspark.streaming.kafka'
 
-from pyspark import SparkContext
+
+from pyspark import SparkContext, SparkConf
+from pyspark.sql import SparkSession
 from pyspark.streaming import StreamingContext
-from kafka import KafkaConsumer
+from pyspark.streaming.kafka import KafkaUtils
 import json
 
-# Configurações do Spark e do Kafka
-sc = SparkContext(appName='Exemplo Spark Streaming com Kafka')
-ssc = StreamingContext(sc, 1)  # Intervalo de 1 segundo
+# Configurações do Kafka
 brokers = 'localhost:9092'
 topic = 'meu-topico'
 
-# Cria um stream do Kafka usando o KafkaConsumer
-consumer = KafkaConsumer(topic, bootstrap_servers=brokers)
+# Configurações do Spark
+conf = SparkConf().setAppName('ConsumidorKafkaSpark')
+sc = SparkContext(conf=conf)
+spark = SparkSession(sc)
+ssc = StreamingContext(sc, 10)
 
-# Define a função que será usada para ler as mensagens
-def read_messages(message):
-    parsed = json.loads(message.value)
-    words = parsed['mensagem'].split(' ')
-    return [(word, 1) for word in words]
+# Cria um DStream Spark Streaming a partir do Kafka
+kafkaStream = KafkaUtils.createDirectStream(
+    ssc, [topic], {"metadata.broker.list": brokers}
+)
 
-# Cria o DStream a partir do KafkaConsumer
-dstream = ssc \
-    .queueStream([consumer], oneAtATime=True) \
-    .flatMap(read_messages) \
-    .reduceByKey(lambda a, b: a + b)
+# Função para converter mensagens em objetos Python
+def parse_json(msg):
+    try:
+        return json.loads(msg[1])
+    except Exception as e:
+        print(f'Ignorando mensagem inválida: {msg[1]}, Erro: {str(e)}')
+        return None
 
-# Saída da contagem de palavras
-dstream.pprint()
+# Converte as mensagens em objetos Python e armazena em um DataFrame
+lines = kafkaStream.map(parse_json).filter(lambda x: x is not None)
+df = lines.foreachRDD(lambda rdd: spark.createDataFrame(rdd, samplingRatio=1.0))
 
-# Inicia o streaming
+# Exibe o DataFrame na tela
+df.foreach(lambda x: print(x.show()))
+
+# Inicia o processo do Spark Streaming
 ssc.start()
 ssc.awaitTermination()
