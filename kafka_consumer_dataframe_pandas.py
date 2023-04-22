@@ -1,12 +1,13 @@
 # python -m pip install pandas
 
-from kafka import KafkaConsumer
 import json
+
 import pandas as pd
+from kafka import KafkaConsumer
 
 # Configurações do Kafka
 brokers = 'localhost:9092'
-topic = 'meu-topico'
+topic = 'desafio_data_science'
 
 # Cria um consumidor Kafka
 consumer = KafkaConsumer(
@@ -17,11 +18,15 @@ consumer = KafkaConsumer(
 )
 
 # Loop para consumir mensagens
-df = pd.DataFrame(columns=["chave", "valor"])
+df = pd.DataFrame(columns=["nome"])
 for message in consumer:
     try:
         data = json.loads(message.value)
-        df = df.append({"chave": message.key, "valor": data}, ignore_index=True)
+
+        nova_linha = {"nome": data["nome"]}
+        df.loc[len(df)] = nova_linha
+
+        print("-"* 20)
         print(df)
     except (ValueError, TypeError, KeyError) as e:
         print(f'Ignorando mensagem inválida: {message.value}, Erro: {str(e)}')

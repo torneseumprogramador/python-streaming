@@ -2,12 +2,13 @@
 # python -m pip install pyspark
 # python -m pip install kafka-python
 
-from kafka import KafkaProducer
 import json
+
+from kafka import KafkaProducer
 
 # Configurações do Kafka
 brokers = 'localhost:9092'
-topic = 'meu-topico'
+topic = 'kafka-streaming-spark'
 
 # Cria um produtor Kafka
 producer = KafkaProducer(
@@ -16,10 +17,17 @@ producer = KafkaProducer(
 )
 
 # Loop para produzir mensagens
-for i in range(10):
-    message = {'id': i, 'mensagem': f'Mensagem {i}'}
-    producer.send(topic, message)
+# for i in range(10):
+#     message = {'id': i, 'mensagem': f'Mensagem {i}'}
+#     producer.send(topic, message)
 
-# Fecha a conexão com o Kafka
-producer.close()
+try:
+    while(True):
+        print("Digite o seu nome")
+        nome = input()
+        message = {'nome': nome}
+        producer.send(topic, message)
+except: 
+    # Fecha a conexão com o Kafka
+    producer.close()
 

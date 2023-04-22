@@ -1,16 +1,16 @@
 
-from kafka import KafkaConsumer
 import json
-from pyspark.sql import SparkSession
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType
 
+from kafka import KafkaConsumer
+from pyspark.sql import Row, SparkSession
+from pyspark.sql.types import IntegerType, StringType, StructField, StructType
 
 # Cria um DataFrame de exemplo
-spark = SparkSession.builder.appName("rename_column").getOrCreate()
+spark = SparkSession.builder.appName("desafio_data_science").getOrCreate()
 
 # Configurações do Kafka
 brokers = 'localhost:9092'
-topic = 'meu-topico'
+topic = 'kafka-streaming-spark'
 
 # Cria um consumidor Kafka
 consumer = KafkaConsumer(
@@ -21,25 +21,41 @@ consumer = KafkaConsumer(
     value_deserializer=lambda m: m.decode('utf-8')
 )
 
-# cria um dataframe vazio
-# Define o esquema (schema) do DataFrame
-schema = StructType([
-    StructField("id", IntegerType(), True),
-    StructField("mensagem", StringType(), True)
-])
+try:
+    # cria um dataframe vazio
+    # Define o esquema (schema) do DataFrame
+    schema = StructType([
+        # StructField("id", IntegerType(), True),
+        StructField("nome", StringType(), True)
+    ])
 
-# Cria um RDD vazio
-rdd = spark.sparkContext.emptyRDD()
+    # # Cria um RDD vazio
+    # rdd = spark.sparkContext.emptyRDD()
 
-# Cria o DataFrame vazio
-df = spark.createDataFrame(rdd, schema)
+    # # Cria o DataFrame vazio
+    # df = spark.createDataFrame(rdd, schema)
 
-for message in consumer:
-    try:
-        data = message.value
-        json_parsed = json.loads(data)
-        new_df = spark.createDataFrame([(json_parsed["id"], json_parsed["mensagem"])], ["chave", "valor"])
-        df = df.union(new_df)
-        df.show()
-    except (ValueError, TypeError, KeyError) as e:
-        print(f'Ignorando mensagem inválida: {message.value}, Erro: {str(e)}')
+    # df = spark.createDataFrame(rdd, schema)
+
+    # Lê o arquivo CSV e cria um DataFrame
+    df = spark.read.format("csv").option("header", True).option("delimiter", ",").load("nomes.csv") # Especifica o caminho para o arquivo
+    df.show()
+
+    for message in consumer:
+        try:
+            data = message.value
+            json_parsed = json.loads(data)
+
+            nova_linha = Row(nome=json_parsed["nome"])
+            df_novo = spark.createDataFrame([nova_linha], schema)
+            df = df.union(df_novo)
+
+            print("-"* 20)
+            df.show()
+
+            df.toPandas().to_csv("nomes.csv", index=False)
+        except (ValueError, TypeError, KeyError) as e:
+            print(f'Ignorando mensagem inválida: {message.value}, Erro: {str(e)}')
+except:
+    consumer.close()
+    spark.close()

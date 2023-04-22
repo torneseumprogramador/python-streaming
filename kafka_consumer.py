@@ -6,7 +6,7 @@ from kafka import KafkaConsumer
 
 # Configurações do Kafka
 brokers = 'localhost:9092'
-topic = 'meu-topico'
+topic = 'desafio_data_science'
 
 # Cria um consumidor Kafka
 consumer = KafkaConsumer(
